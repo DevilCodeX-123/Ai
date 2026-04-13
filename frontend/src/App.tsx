@@ -24,7 +24,17 @@ const App = () => {
   const [handInteraction, setHandInteraction] = useState<any>(null);
   const lastSpokenIndex = useRef<number>(-1);
   const hasGreeted = useRef(false);
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // Resize listener for fluid optics
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const isMobile = windowWidth < 768;
 
   // Smart Greeting logic
   useEffect(() => {
@@ -274,7 +284,10 @@ const App = () => {
       {!isGhostMode && (
         <div className="absolute inset-0 z-0">
           <Suspense fallback={<div className="w-full h-full bg-black/20 animate-pulse" />}>
-            <Canvas camera={{ position: [0, 0, 5], fov: 45 }}>
+            <Canvas camera={{ 
+               position: [0, isMobile ? 0.5 : 0, 5], 
+               fov: isMobile ? 65 : 45 
+            }}>
               <DevilCore 
                 isThinking={isLoading} 
                 isSpeaking={isSpeaking} 
@@ -290,30 +303,31 @@ const App = () => {
       <div className="relative z-10 h-full flex flex-col safe-p-top safe-p-bottom">
         
         {/* Top Header */}
-        <header className="p-6 flex justify-between items-center bg-gradient-to-b from-black/50 to-transparent">
+        <header className="p-4 md:p-6 flex justify-between items-center bg-gradient-to-b from-black/80 to-transparent">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full border-2 border-devil-gold flex items-center justify-center gold-glow">
+            <div className="w-10 h-10 rounded-full border-2 border-devil-gold flex items-center justify-center gold-glow shrink-0">
               <span className="text-devil-gold font-bold italic">D</span>
             </div>
-            {!isGhostMode && <h1 className="text-xl font-bold tracking-widest text-devil-gold">DEVIL AI</h1>}
+            {!isGhostMode && <h1 className="text-lg md:text-xl font-bold tracking-widest text-devil-gold hidden sm:block">DEVIL AI</h1>}
           </div>
-          <div className="flex items-center gap-4">
-            <div className="hidden md:flex items-center gap-2 px-3 py-1 rounded-full bg-devil-gold/10 border border-devil-gold/20 mr-2">
-              <div className={`w-2 h-2 rounded-full ${isLoading ? 'bg-blue-500 animate-pulse' : 'bg-devil-gold shadow-[0_0_8px_rgba(212,175,55,0.8)]'}`} />
-              <span className="text-[10px] font-mono tracking-widest text-devil-gold/80 uppercase">
-                {isLoading ? 'Brain: Active' : 'Brain: Locked'}
-              </span>
-            </div>
+          <div className="flex items-center gap-2 md:gap-4">
+            {!isMobile && (
+              <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-devil-gold/10 border border-devil-gold/20 mr-2">
+                <div className={`w-2 h-2 rounded-full ${isLoading ? 'bg-blue-500 animate-pulse' : 'bg-devil-gold shadow-[0_0_8px_rgba(212,175,55,0.8)]'}`} />
+                <span className="text-[10px] font-mono tracking-widest text-devil-gold/80 uppercase">
+                  {isLoading ? 'Brain: Active' : 'Brain: Locked'}
+                </span>
+              </div>
+            )}
             <button onClick={handleClear} className="p-2 rounded-full glass text-red-400">
-              <Trash2 size={20} />
+              <Trash2 size={18} />
             </button>
             <button onClick={() => setShowGestures(!showGestures)} className={`p-2 rounded-full glass ${showGestures ? 'text-devil-gold' : ''}`}>
-              <Eye size={20} />
+              <Eye size={18} />
             </button>
             <button onClick={() => setIsGhostMode(!isGhostMode)} className={`p-2 rounded-full glass ${isGhostMode ? 'text-devil-gold' : ''}`}>
-              <Ghost size={20} />
+              <Ghost size={18} />
             </button>
-            <Settings size={20} className="p-2 glass rounded-full" />
           </div>
         </header>
 
@@ -380,30 +394,30 @@ const App = () => {
               )}
             </motion.div>
           ) : (
-            <div className="max-w-4xl mx-auto flex items-center gap-4">
-              <div className="flex-1 flex items-center glass rounded-2xl p-2 px-4 border border-white/10 opacity-80">
+            <div className="w-full max-w-4xl mx-auto flex items-center gap-2 md:gap-4">
+              <div className="flex-1 flex items-center glass rounded-2xl p-1 md:p-2 px-3 md:px-4 border border-white/10 opacity-80">
                 <input 
                   type="text" 
                   value={inputText}
                   disabled={isLoading}
                   onChange={(e) => setInputText(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && !isLoading && handleSend()}
-                  placeholder={isLoading ? "Processing command..." : "Initiate command..."}
-                  className="bg-transparent flex-1 outline-none text-sm p-2 disabled:cursor-not-allowed"
+                  placeholder={isLoading ? (isMobile ? "AI Acting..." : "Processing command...") : (isMobile ? "Command..." : "Initiate command...")}
+                  className="bg-transparent flex-1 outline-none text-[13px] md:text-sm p-2 disabled:cursor-not-allowed min-w-0"
                 />
                 {isLoading ? (
                   <button 
                     onClick={stopStreaming}
-                    className="p-2 text-red-500 hover:text-red-400 transition-colors animate-pulse"
+                    className="p-2 text-red-500 hover:text-red-400 transition-colors animate-pulse shrink-0"
                   >
-                    <Square size={20} fill="currentColor" />
+                    <Square size={18} fill="currentColor" />
                   </button>
                 ) : (
                   <button 
                     onClick={handleSend}
-                    className="p-2 hover:text-devil-gold transition-colors"
+                    className="p-2 hover:text-devil-gold transition-colors shrink-0"
                   >
-                    <Send size={20} />
+                    <Send size={18} />
                   </button>
                 )}
               </div>
@@ -414,9 +428,9 @@ const App = () => {
                    isListening ? stopListening() : startListening();
                 }}
                 disabled={isLoading}
-                className={`p-4 rounded-2xl glass transition-all duration-300 ${isLoading ? 'opacity-30 cursor-not-allowed' : (isListening ? 'text-red-500 gold-glow' : 'text-devil-gold')}`}
+                className={`p-3 md:p-4 rounded-2xl glass transition-all duration-300 shrink-0 ${isLoading ? 'opacity-30 cursor-not-allowed' : (isListening ? 'text-red-500 gold-glow' : 'text-devil-gold')}`}
               >
-                {isListening ? <MicOff size={24} /> : <Mic size={24} />}
+                {isListening ? <MicOff size={22} /> : <Mic size={22} />}
               </button>
             </div>
           )}

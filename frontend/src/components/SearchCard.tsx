@@ -25,7 +25,7 @@ export const SearchCard: React.FC<SearchCardProps> = ({ query, results }) => {
         </div>
       </div>
       
-      <div className="p-4 space-y-4">
+      <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
         {Array.isArray(results) && results.length > 0 ? (
           results.slice(0, 3).map((res, i) => (
             <div key={i} className="group p-3 rounded-lg hover:bg-white/5 transition-all border border-transparent hover:border-devil-gold/10">

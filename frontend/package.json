@@ -47,5 +47,10 @@
     "typescript-eslint": "^8.18.1",
     "vite": "^6.0.4",
     "vite-plugin-pwa": "^0.21.1"
+  },
+  "overrides": {
+    "sourcemap-codec": "npm:@jridgewell/sourcemap-codec@^1.4.15",
+    "glob": "^11.0.0",
+    "source-map": "^0.7.4"
   }
 }

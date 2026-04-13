@@ -175,13 +175,39 @@ const App = () => {
     }
   }, [error]);
 
+  const lastGestureTime = useRef<number>(0);
+
   const handleHandData = (data: any) => {
     setHandInteraction(data);
     
-    // Auto-trigger listening on 'open' gesture
+    const now = Date.now();
+    if (now - lastGestureTime.current < 800) return; // 800ms cooldown for stability
+
+    // 1. Open Hand -> Trigger Listening
     if (data.gesture === 'open' && !isListening && !isSpeaking && !isLoading) {
       startListening();
+      lastGestureTime.current = now;
       Haptics.impact({ style: ImpactStyle.Light });
+    }
+
+    // 2. Fist -> Force Abort (Stop AI actions)
+    if (data.gesture === 'fist' && (isLoading || isSpeaking)) {
+      stopStreaming();
+      stopListening();
+      // We don't have a stopSpeaking in hooks, but we can clear chat or just silence it
+      if (isSpeaking) {
+        window.speechSynthesis.cancel();
+      }
+      lastGestureTime.current = now;
+      Haptics.notification({ type: 'WARNING' as any });
+      setMessages(prev => [...prev, { role: 'model', parts: [{ text: "⚠️ ACTION ABORTED BY BOSS." }] }]);
+    }
+
+    // 3. Pinch -> Toggle Ghost/Terminal Mode
+    if (data.gesture === 'pinch') {
+      setIsGhostMode(prev => !prev);
+      lastGestureTime.current = now;
+      Haptics.impact({ style: ImpactStyle.Heavy });
     }
   };
 
@@ -333,7 +359,7 @@ const App = () => {
 
         {/* Hand Tracker (Optional View) */}
         {showGestures && (
-          <div className="absolute top-24 right-6 z-50">
+          <div className={`absolute z-50 transition-all duration-500 ${isMobile ? 'top-20 left-1/2 -translate-x-1/2' : 'top-24 right-6'}`}>
             <HandTracker onHandData={handleHandData} showDebug={true} />
             <p className="text-[10px] text-devil-gold mt-1 text-center font-mono uppercase">Gesture Engine: {handInteraction?.gesture || 'IDLE'}</p>
           </div>
@@ -447,7 +473,15 @@ const App = () => {
           >
             <ShieldAlert size={64} className="text-red-500 mx-auto mb-4 animate-pulse" />
             <h2 className="text-2xl font-bold text-red-500 mb-2 uppercase tracking-tighter">SYSTEM ALERT</h2>
-            <p className="text-gray-400 mb-6 font-mono text-sm">{error}</p>
+            <p className="text-gray-400 mb-2 font-mono text-sm">{error}</p>
+            {error.includes('fetch') && (
+              <div className="mb-6 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-[10px] text-red-400 font-mono text-left">
+                <p>⚠️ NEURAL LINK OFFLINE</p>
+                <p className="mt-1">1. Check Render Backend status.</p>
+                <p>2. Set VITE_API_URL in Vercel to your Render URL.</p>
+                <p>3. Ensure FRONTEND_URL in Render matches Vercel.</p>
+              </div>
+            )}
             <div className="flex gap-3">
                <button
                  onClick={clearError}

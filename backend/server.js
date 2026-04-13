@@ -19,14 +19,18 @@ const port = process.env.PORT || 5000;
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:5173',
-  process.env.FRONTEND_URL, // Set this in Render env vars to your Vercel URL
+  'https://ai-gilt-three.vercel.app',
+  process.env.FRONTEND_URL, 
 ].filter(Boolean);
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (mobile apps, curl, Postman)
+    // Allow requests with no origin (mobile)
     if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) {
+    
+    // Check if origin is in whitelist or is a vercel subdomain
+    const isVercel = origin.endsWith('.vercel.app');
+    if (allowedOrigins.includes(origin) || isVercel) {
       return callback(null, true);
     }
     callback(new Error('Not allowed by CORS'));

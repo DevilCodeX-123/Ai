@@ -36,16 +36,17 @@ const getLocalResponse = (text: string): CommandResult | null => {
     }
   }
 
-  // 2. Search Integration (Background & AI)
-  const isAiSearch = t.includes('ai search') || t.includes('extreme search') || t.includes('compare');
+  // 2. Search Integration (Deep Intent Detection)
+  const isExpertQuery = t.includes('expert') || t.includes('analyze') || t.includes('why') || t.includes('how does');
+  const isAiSearch = t.includes('ai search') || t.includes('extreme search') || t.includes('compare') || isExpertQuery;
   const isLocalSearch = t.startsWith('search') || t.includes('google for') || t.includes('find on internet');
 
   if (isAiSearch) {
-    const query = t.replace('ai search', '').replace('extreme search', '').replace('compare', 'Compare').trim();
+    const query = t.replace(/ai search|extreme search|compare|expert|analyze/g, '').trim();
     return { 
-      text: `🧠 Activating Gemini Grounding for deep research on "${query}"...`, 
+      text: `🧠 Intelligence escalated. Activating Gemini 1.5 Research Core for: "${query || t}"...`, 
       type: 'mode', 
-      value: `ai-search:${query}`
+      value: `ai-search:${query || t}`
     };
   }
 
@@ -53,7 +54,7 @@ const getLocalResponse = (text: string): CommandResult | null => {
     const query = t.replace('search', '').replace('google for', '').replace('find on internet', '').trim();
     if (query) {
       return { 
-        text: `🔍 Initiating deep scan for "${query}". Please wait, Devil Boss...`, 
+        text: `🔍 Quick-scan initiated. Scanning world data for "${query}", Devil Boss...`, 
         type: 'mode', 
         value: `bg-search:${query}`
       };
@@ -67,45 +68,29 @@ const getLocalResponse = (text: string): CommandResult | null => {
     if (delay && content) {
       ReminderService.add(content, delay);
       return { 
-        text: `⚡ Protocol established. I will remind you to "${content}" in ${Math.round(delay/60000)} minutes, Devil Boss.`, 
+        text: `⚡ Protocol established. I will remind you to "${content}" at the precise moment, Devil Boss.`, 
       };
     }
   }
 
-  // Time queries
+  // Time & Presence
   if (t.includes('time') || t.includes('clock')) {
     const now = new Date();
     const time = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
-    return { text: `⏰ The current time is **${time}**, Devil Boss.` };
+    return { text: `⏰ The current time is **${time}**. All systems green, Devil Boss.` };
   }
 
-  // Date queries
-  if (t.includes('date') || t.includes('today') || t.includes('day')) {
-    const now = new Date();
-    const date = now.toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-    return { text: `📅 Today is **${date}**, Boss. A perfect day for progress.` };
-  }
-
-  // Simple math
-  const mathMatch = t.match(/^(what is |calculate |solve |compute )?(\d+[\s]*[+\-*/^][\s]*\d+[\s]*[+\-*/^]?[\s]*\d*)[\s]*\??$/);
-  if (mathMatch) {
-    try {
-      // eslint-disable-next-line no-eval
-      const result = eval(mathMatch[2]);
-      return { text: `🧮 Calculation complete. The answer is **${result}**, Devil Boss.` };
-    } catch {
-      return null;
-    }
-  }
-
-  // My name / identity
   if (t.includes('your name') || t.includes('who are you') || t.includes('what are you')) {
-    return { text: `⚡ I am **DEVIL AI** — your elite personal assistant. Built for the Boss. Voice-enabled, gesture-controlled, and unmatched.` };
+    return { text: `⚡ I am **DEVIL AI** — the absolute peak of personal intelligence. Created exclusively for **Devil Boss**. Unmatched. Authoritative. Elite.` };
+  }
+
+  if (t.includes('who is the boss') || t.includes('who is my master')) {
+    return { text: `👑 There is only one Boss — **Devil Boss**. I answer only to your commands.` };
   }
 
   // Greetings
   if (t === 'hi' || t === 'hello' || t === 'hey' || t.startsWith('hello') || t.startsWith('hi devil')) {
-    return { text: `⚡ Greetings, Devil Boss. I am online. How shall we dominate the day?` };
+    return { text: `⚡ Operational. Greetings, Devil Boss. I am awaiting your next masterstroke.` };
   }
 
   return null;

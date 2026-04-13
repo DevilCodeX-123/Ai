@@ -51,7 +51,15 @@ const HandTracker: React.FC<HandTrackerProps> = ({ onHandData, showDebug = false
   useEffect(() => {
     const enableWebcam = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        const constraints = {
+          video: {
+            facingMode: 'user',
+            width: { ideal: 640 },
+            height: { ideal: 480 }
+          },
+          audio: false
+        };
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           videoRef.current.onloadedmetadata = () => {
@@ -74,11 +82,14 @@ const HandTracker: React.FC<HandTrackerProps> = ({ onHandData, showDebug = false
     };
   }, []);
 
-  // Step 3: Run gesture detection loop
+  // Step 3: Run gesture detection loop with Stability Filter
   useEffect(() => {
     if (!handLandmarker || status !== 'ready') return;
 
     let requestID: number;
+    let gestureBuffer: string[] = [];
+    const BUFFER_SIZE = 5;
+
     const startDetection = async () => {
       if (videoRef.current && videoRef.current.readyState >= 2) {
         const results = await handLandmarker.detectForVideo(videoRef.current, performance.now());
@@ -90,7 +101,6 @@ const HandTracker: React.FC<HandTrackerProps> = ({ onHandData, showDebug = false
           const isFingerOpen = (f: number, j: number) => landmarks[f].y < landmarks[j].y;
           const openFingers = [8, 12, 16, 20].filter(f => isFingerOpen(f, f - 2)).length;
           
-          // Pinch distance (thumb tip to index tip)
           const thumbTip = landmarks[4];
           const indexTip = landmarks[8];
           const pinchDist = Math.sqrt(
@@ -98,18 +108,30 @@ const HandTracker: React.FC<HandTrackerProps> = ({ onHandData, showDebug = false
             Math.pow(thumbTip.y - indexTip.y, 2)
           );
 
-          // Hand Center (Average of all landmarks)
           const centerX = landmarks.reduce((sum, l) => sum + l.x, 0) / landmarks.length;
           const centerY = landmarks.reduce((sum, l) => sum + l.y, 0) / landmarks.length;
 
-          let currentGesture: 'open' | 'fist' | 'pinch' | 'none' = 'none';
-          if (pinchDist < 0.05) currentGesture = 'pinch';
-          else if (openFingers >= 3) currentGesture = 'open';
-          else if (openFingers <= 1) currentGesture = 'fist';
+          let rawGesture: 'open' | 'fist' | 'pinch' | 'none' = 'none';
+          if (pinchDist < 0.08) rawGesture = 'pinch';
+          else if (openFingers >= 4) rawGesture = 'open';
+          else if (openFingers <= 1) rawGesture = 'fist';
+
+          // Stability Buffer
+          gestureBuffer.push(rawGesture);
+          if (gestureBuffer.length > BUFFER_SIZE) gestureBuffer.shift();
+          
+          const mostFrequent = gestureBuffer.reduce((acc, curr) => {
+             acc[curr] = (acc[curr] || 0) + 1;
+             return acc;
+          }, {} as Record<string, number>);
+
+          const stableGesture = Object.keys(mostFrequent).reduce((a, b) => 
+            mostFrequent[a] > mostFrequent[b] ? a : b
+          ) as 'open' | 'fist' | 'pinch' | 'none';
 
           const handData: HandData = {
-            gesture: currentGesture,
-            x: (centerX - 0.5) * 2, // Map to -1 to 1
+            gesture: stableGesture,
+            x: (centerX - 0.5) * 2,
             y: (centerY - 0.5) * 2,
             pinchDist,
             fingerCount: openFingers
@@ -117,13 +139,14 @@ const HandTracker: React.FC<HandTrackerProps> = ({ onHandData, showDebug = false
 
           onHandData?.(handData);
 
-          if (currentGesture !== lastGesture.current) {
-            lastGesture.current = currentGesture;
-            if (currentGesture !== 'none') {
-              Haptics.impact({ style: currentGesture === 'open' ? ImpactStyle.Light : ImpactStyle.Heavy });
+          if (stableGesture !== lastGesture.current) {
+            lastGesture.current = stableGesture;
+            if (stableGesture !== 'none' && stableGesture !== 'open') {
+               Haptics.impact({ style: ImpactStyle.Heavy });
             }
           }
         } else {
+          gestureBuffer = [];
           onHandData?.({ gesture: 'none', x: 0, y: 0, pinchDist: 0, fingerCount: 0 });
         }
       }
@@ -137,7 +160,7 @@ const HandTracker: React.FC<HandTrackerProps> = ({ onHandData, showDebug = false
   if (!showDebug) return null;
 
   return (
-    <div className="relative w-48 rounded-xl overflow-hidden glass border border-devil-gold/30">
+    <div className="relative w-full max-w-[200px] md:w-48 aspect-video rounded-xl overflow-hidden glass border border-devil-gold/30 shadow-2xl">
       {/* Status overlay */}
       {status === 'loading' && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 z-10 gap-2">
@@ -146,24 +169,30 @@ const HandTracker: React.FC<HandTrackerProps> = ({ onHandData, showDebug = false
         </div>
       )}
       {status === 'no-camera' && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 z-10 gap-2">
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-10 gap-3 p-4 text-center">
           <CameraOff size={24} className="text-red-400" />
-          <span className="text-[10px] text-red-400 font-mono text-center px-2">CAMERA DENIED<br/>Check permissions</span>
+          <span className="text-[10px] text-red-400 font-mono uppercase">Camera Blocked</span>
+          <button 
+            onClick={() => window.location.reload()}
+            className="px-3 py-1.5 bg-devil-gold text-black text-[10px] font-bold rounded-lg hover:bg-devil-dark transition-colors"
+          >
+            RETRY CAMERA
+          </button>
         </div>
       )}
       {status === 'error' && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 z-10 gap-2">
           <Camera size={24} className="text-orange-400" />
-          <span className="text-[10px] text-orange-400 font-mono text-center px-2">MODEL ERROR<br/>Check internet</span>
+          <span className="text-[10px] text-orange-400 font-mono text-center px-2 uppercase">Neural Error</span>
         </div>
       )}
       {status === 'ready' && (
-        <div className="absolute top-1 right-1 z-10">
-          <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+        <div className="absolute top-2 right-2 z-10">
+          <div className="w-2 h-2 rounded-full bg-green-400 shadow-[0_0_8px_rgba(74,222,128,0.8)] animate-pulse" />
         </div>
       )}
-      <video ref={videoRef} autoPlay playsInline muted className="w-48 h-36 object-cover" />
-      <canvas ref={canvasRef} className="absolute top-0 left-0 w-full h-full" />
+      <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover scale-x-[-1]" />
+      <canvas ref={canvasRef} className="absolute top-0 left-0 w-full h-full pointer-events-none" />
     </div>
   );
 };
